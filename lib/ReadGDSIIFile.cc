@@ -16,7 +16,7 @@
 */
 
 /*
- * libGDSII is a C++ library for working with GDSII data files.
+ * ReadGDSIIFile.cc -- GDSII file reader for libGDSII
  * Homer Reid   11/2017
  */
 
@@ -30,6 +30,7 @@
 
 #include "libGDSII.h"
 
+using namespace std;
 namespace libGDSII {
 
 typedef unsigned char  BYTE;
@@ -39,6 +40,10 @@ typedef unsigned long  DWORD;
 /***************************************************************/
 /* some data structures used in this file only *****************/
 /***************************************************************/
+
+/*--------------------------------------------------------------*/
+/* storage for a single data record in the GDSII file           */
+/*--------------------------------------------------------------*/
 typedef struct GDSIIRecord
  {
    BYTE RType; // record type
@@ -48,53 +53,59 @@ typedef struct GDSIIRecord
    int *iVal;
    double *dVal;
    string *sVal;
-   int NumVals;
+   size_t NumVals;
 
  } GDSIIRecord;
 
-typedef enum ParseState
- { INITIAL,  INHEADER,  INLIB,  INSTRUCT, INELEMENT, DONE };
-
+/*--------------------------------------------------------------*/
+/*- 'ParseState' data structure maintained while reading .GDSII */
+/*- file, updated after each record is read                     */
+/*--------------------------------------------------------------*/
 class GDSIIData; // forward reference 
 typedef struct ParseState 
  { 
    GDSIIData *Data;
    int NumRecords;
+   enum { INITIAL,
+          INHEADER,  INLIB,  INSTRUCT, INELEMENT,
+          DONE
+        } Status;
+   GDSIIStruct *CurrentStruct;
+   GDSIIElement *CurrentElement;
 
  } ParseState;
 
-typedef *string (*Handler)(GDSIIRecord *Record, ParseState *PState);
+typedef string *(*RecordHandler)(GDSIIRecord *Record, ParseState *PState);
+
+const char *ElTypeNames[]=
+ {"BOUNDARY", "PATH", "SREF", "AREF", "TEXT", "NODE", "BOX"};
 
 /***************************************************************/
-/* Handlers for specific types of data records in GDSII files  */
+/* Handlers for specific types of data records in GDSII files. */
 /***************************************************************/
 string *handleHEADER(GDSIIRecord *Record, ParseState *PState)
 {
-  if (PState->State!=ParseState.INITIAL)
+  (void) Record;
+  if (PState->Status!=ParseState::INITIAL)
    return new string("unexpected record before HEADER");
-
-  // save date info
-
-  PState->State=SawHEADER;
+  PState->Status=ParseState::INHEADER;
   return 0;
 }
 
 string *handleBGNLIB(GDSIIRecord *Record, ParseState *PState)
 {
-  if (PState->State!=SawHEADER)
+  (void) Record;
+  if (PState->Status!=ParseState::INHEADER)
    return new string("unexpected record BGNLIB");
-
-  PState->State=SawBGNLIB;
-
-  // save date info
-
+  PState->Status=ParseState::INLIB;
   return 0;
 }
 
 string *handleLIBNAME(GDSIIRecord *Record, ParseState *PState)
-{ if (PState->State!=SawHEADER)
+{ 
+  if (PState->Status!=ParseState::INLIB)
    return new string("unexpected record LIBNAME");
-  PState->Data->LibName = new string(Record->sVal);
+  PState->Data->LibName = new string( *Record->sVal );
   return 0;
 }
 
@@ -102,12 +113,167 @@ string *handleUNITS(GDSIIRecord *Record, ParseState *PState)
 { 
   PState->Data->FileUnits[0] = Record->dVal[0];
   PState->Data->FileUnits[1] = Record->dVal[1];
-  PState->Date->Unit = PState->Data->FileUnits[1] / PState->Data->FileUnits[0];
+  PState->Data->Unit = 
+   PState->Data->FileUnits[1] / PState->Data->FileUnits[0];
   return 0;
 }
 
 string *handleENDLIB(GDSIIRecord *Record, ParseState *PState)
-{ if 
+{ 
+  (void) Record;
+  if (PState->Status!=ParseState::INLIB)
+   return new string("unexpected record ENDLIB");
+  PState->Status=ParseState::DONE;
+  return 0;
+}
+
+string *handleBGNSTR(GDSIIRecord *Record, ParseState *PState)
+{
+  (void) Record;
+  if (PState->Status!=ParseState::INLIB)
+   return new string("unexpected record BGNSTR");
+
+  // add a new structure
+  GDSIIStruct *s  = new GDSIIStruct;
+  s->IsReferenced = false;
+  PState->CurrentStruct = s;
+  PState->Data->Structs.push_back(s);
+
+  PState->Status=ParseState::INSTRUCT;
+
+  return 0;
+}
+
+string *handleSTRNAME(GDSIIRecord *Record, ParseState *PState)
+{
+  if (PState->Status!=ParseState::INSTRUCT)
+   return new string("unexpected record STRNAME");
+  PState->CurrentStruct->Name = new string( *(Record->sVal) );
+  return 0;
+}
+
+string *handleENDSTR(GDSIIRecord *Record, ParseState *PState)
+{
+  (void) Record;
+  if (PState->Status!=ParseState::INSTRUCT)
+   return new string("unexpected record ENDSTR");
+  PState->Status=ParseState::INLIB;
+  return 0;
+}
+
+string *handleElement(GDSIIRecord *Record, ParseState *PState, ElementType ElType)
+{
+  (void) Record;
+  if (PState->Status!=ParseState::INSTRUCT)
+   return new string(   string("unexpected record")
+                      + ElTypeNames[ElType]
+                    );
+  
+  // add a new element
+  GDSIIElement *e = new GDSIIElement;
+  e->Type     = ElType;
+  e->Layer    = 0;
+  e->DataType = 0;
+  e->SName    = 0;
+  e->Width    = 0;
+  e->Columns  = 0;
+  e->Rows     = 0;
+  e->Text     = 0;
+  e->nsRef    = -1;
+  PState->CurrentElement = e;
+  PState->CurrentStruct->Elements.push_back(e);
+
+  PState->Status=ParseState::INELEMENT;
+  return 0;
+}
+
+string *handleBOUNDARY(GDSIIRecord *Record, ParseState *PState)
+{ return handleElement(Record, PState, BOUNDARY); }
+
+string *handlePATH(GDSIIRecord *Record, ParseState *PState)
+{ return handleElement(Record, PState, PATH); }
+
+string *handleSREF(GDSIIRecord *Record, ParseState *PState)
+{ return handleElement(Record, PState, SREF); }
+
+string *handleAREF(GDSIIRecord *Record, ParseState *PState)
+{ return handleElement(Record, PState, AREF); }
+
+string *handleTEXT(GDSIIRecord *Record, ParseState *PState)
+{ return handleElement(Record, PState, TEXT); }
+
+string *handleNODE(GDSIIRecord *Record, ParseState *PState)
+{ return handleElement(Record, PState, NODE); }
+
+string *handleBOX(GDSIIRecord *Record, ParseState *PState)
+{ return handleElement(Record, PState, BOX); }
+
+string *handleLAYER(GDSIIRecord *Record, ParseState *PState)
+{
+  if (PState->Status!=ParseState::INELEMENT)
+   return new string("unexpected record LAYER");
+  PState->CurrentElement->Layer = Record->iVal[0];
+  return 0;
+}
+
+string *handleDATATYPE(GDSIIRecord *Record, ParseState *PState)
+{
+  if (PState->Status!=ParseState::INELEMENT)
+   return new string("unexpected record DATATYPE");
+  PState->CurrentElement->DataType = Record->iVal[0];
+  return 0;
+}
+
+string *handleXY(GDSIIRecord *Record, ParseState *PState)
+{
+  if (PState->Status!=ParseState::INELEMENT)
+   return new string("unexpected record XY");
+  PState->CurrentElement->XY.reserve(Record->NumVals);
+  for(size_t n=0; n<Record->NumVals; n++)
+   PState->CurrentElement->XY.push_back(Record->iVal[n]);
+  return 0;
+}
+
+string *handleSNAME(GDSIIRecord *Record, ParseState *PState)
+{
+  if (PState->Status!=ParseState::INELEMENT)
+   return new string("unexpected record SNAME");
+  PState->CurrentElement->SName = new string( *(Record->sVal) );
+  return 0;
+}
+
+string *handleSTRING(GDSIIRecord *Record, ParseState *PState)
+{
+  if (PState->Status!=ParseState::INELEMENT)
+   return new string("unexpected record STRING");
+  PState->CurrentElement->Text = new string( *(Record->sVal) );
+  return 0;
+}
+
+string *handleCOLROW(GDSIIRecord *Record, ParseState *PState)
+{
+  if (PState->Status!=ParseState::INELEMENT)
+   return new string("unexpected record COLROW");
+  PState->CurrentElement->Columns = Record->iVal[0];
+  PState->CurrentElement->Rows    = Record->iVal[1];
+  return 0;
+}
+
+string *handleWIDTH(GDSIIRecord *Record, ParseState *PState)
+{
+  if (PState->Status!=ParseState::INELEMENT)
+   return new string("unexpected record Width");
+  PState->CurrentElement->Width   = Record->iVal[0];
+  return 0;
+}
+
+string *handleENDEL(GDSIIRecord *Record, ParseState *PState)
+{
+  (void) Record;
+  if (PState->Status!=ParseState::INELEMENT)
+   return new string("unexpected record ENDEL");
+  PState->Status = ParseState::INSTRUCT;
+  return 0;
 }
 
 /***************************************************************/
@@ -142,23 +308,23 @@ const static RecordType RecordTypes[]={
  /*0x06*/  {"STRNAME",      STRING,      handleSTRNAME},
  /*0x07*/  {"ENDSTR",       NO_DATA,     handleENDSTR},
  /*0x08*/  {"BOUNDARY",     NO_DATA,     handleBOUNDARY},
- /*0x09*/  {"PATH",         NO_DATA,     0},
- /*0x0a*/  {"SREF",         NO_DATA,     0},
- /*0x0b*/  {"AREF",         NO_DATA,     0},
- /*0x0c*/  {"TEXT",         NO_DATA,     0},
- /*0x0d*/  {"LAYER",        INTEGER_2,   0},
- /*0x0e*/  {"DATATYPE",     INTEGER_2,   0},
+ /*0x09*/  {"PATH",         NO_DATA,     handlePATH},
+ /*0x0a*/  {"SREF",         NO_DATA,     handleSREF},
+ /*0x0b*/  {"AREF",         NO_DATA,     handleAREF},
+ /*0x0c*/  {"TEXT",         NO_DATA,     handleTEXT},
+ /*0x0d*/  {"LAYER",        INTEGER_2,   handleLAYER},
+ /*0x0e*/  {"DATATYPE",     INTEGER_2,   handleDATATYPE},
  /*0x0f*/  {"WIDTH",        INTEGER_4,   0},
- /*0x10*/  {"XY",           INTEGER_4,   0},
- /*0x11*/  {"ENDEL",        NO_DATA,     0},
- /*0x12*/  {"SNAME",        STRING,      0},
- /*0x13*/  {"COLROW",       INTEGER_2,   0},
+ /*0x10*/  {"XY",           INTEGER_4,   handleXY},
+ /*0x11*/  {"ENDEL",        NO_DATA,     handleENDEL},
+ /*0x12*/  {"SNAME",        STRING,      handleSNAME},
+ /*0x13*/  {"COLROW",       INTEGER_2,   handleCOLROW},
  /*0x14*/  {"TEXTNODE",     NO_DATA,     0},
  /*0x15*/  {"NODE",         NO_DATA,     0},
  /*0x16*/  {"TEXTTYPE",     INTEGER_2,   0},
  /*0x17*/  {"PRESENTATION", BITARRAY,    0},
  /*0x18*/  {"UNUSED",       NO_DATA,     0},
- /*0x19*/  {"STRING",       STRING,      0},
+ /*0x19*/  {"STRING",       STRING,      handleSTRING},
  /*0x1a*/  {"STRANS",       BITARRAY,    0},
  /*0x1b*/  {"MAG",          REAL_8,      0},
  /*0x1c*/  {"ANGLE",        REAL_8,      0},
@@ -258,7 +424,7 @@ const static RecordType RecordTypes[]={
 #define MAX_RTYPE     		0x3b
 
 /***************************************************************/
-/* *************************************************************/
+/***************************************************************/
 /***************************************************************/
 int ConvertInt(BYTE *Bytes, DataType DType)
 { 
@@ -352,7 +518,7 @@ GDSIIRecord *ReadGDSIIRecord(FILE *f, string **ErrMsg)
      case BITARRAY:
       { Record->NumVals=1;
         WORD W = *(WORD *)Payload;
-        for(int nf=0, Flag=1; nf<16; nf++, Flag<<1)
+        for(unsigned nf=0, Flag=1; nf<16; nf++, Flag*=2)
          Record->Bits[nf] = (W & Flag);
       };
      break;
@@ -414,7 +580,7 @@ void DestroyGDSIIRecord(GDSIIRecord *Record)
 }
 
 /***************************************************************/
-/* return string description of GDSII record   *****************/
+/* get string description of GDSII record   ********************/
 /***************************************************************/
 string *GetRecordDescription(GDSIIRecord *Record, bool Verbose=true)
 {
@@ -434,19 +600,19 @@ string *GetRecordDescription(GDSIIRecord *Record, bool Verbose=true)
    { 
      case INTEGER_2:    
      case INTEGER_4:    
-      for(int nv=0; nv<Record->NumVals; nv++)
+      for(size_t nv=0; nv<Record->NumVals; nv++)
        ss << Record->iVal[nv] << " ";
       break;
 
      case REAL_4:
      case REAL_8:
-      for(int nv=0; nv<Record->NumVals; nv++)
+      for(size_t nv=0; nv<Record->NumVals; nv++)
        ss << Record->dVal[nv] << " ";
       break;
 
      case BITARRAY:
-      for(int n=0; n<16; n++)
-       ss << Record->Bits[n] ? '1' : '0';
+      for(size_t n=0; n<16; n++)
+       ss << (Record->Bits[n] ? '1' : '0');
       break;
 
      case STRING:
@@ -468,14 +634,18 @@ string *GetRecordDescription(GDSIIRecord *Record, bool Verbose=true)
 /*--------------------------------------------------------------*/
 /*--------------------------------------------------------------*/
 /*--------------------------------------------------------------*/
-#define CHECK_RECORD(f, ErrMsg,
-  { GDSIIRecord *Record=ReadGDSIIRecord(f, &ErrMsg); \
-    if (ErrMsg)                                      \
-     return;
-    if (Record->
-  }
+void InitializeParseState(ParseState *PState, GDSIIData *Data)
+{
+  PState->Data           = Data;
+  PState->NumRecords     = 0;
+  PState->CurrentStruct  = 0;
+  PState->CurrentElement = 0;
+  PState->Status         = ParseState::INITIAL;
+}
 
-// 
+/*--------------------------------------------------------------*/
+/*--------------------------------------------------------------*/
+/*--------------------------------------------------------------*/
 void GDSIIData::ReadGDSIIFile(const string FileName)
  {
    ErrMsg=0;
@@ -490,25 +660,19 @@ void GDSIIData::ReadGDSIIFile(const string FileName)
     };
 
    /*--------------------------------------------------------------*/
-   /*- read records one at a time until we encounter a record of   */
-   /*- type ENDLIB                                                 */
+   /*- read records one at a time until we hit ENDLIB              */
    /*--------------------------------------------------------------*/
-   int NumRecords=0;
    ParseState PState;
-   PState.Data       = this;
-   PState.NumRecords = 0;
-   PState.SawHeader  = false;
-   PState.SawBgnLib  = false;
-   PState.SawEndLib  = false;
-   while( PState.SawEndLib == false )
+   InitializeParseState(&PState, this);
+   while( PState.Status != ParseState::DONE )
     { 
       // try to read the record
       GDSIIRecord *Record=ReadGDSIIRecord(f, &ErrMsg);
       if (ErrMsg)
        return;
 
-      // try to process the record if a handler is present)
-      State.NumRecords++;
+      // try to process the record if a handler is present
+      PState.NumRecords++;
       RecordHandler Handler = RecordTypes[Record->RType].Handler;
       if ( Handler )
        ErrMsg = Handler(Record, &PState);
@@ -516,44 +680,80 @@ void GDSIIData::ReadGDSIIFile(const string FileName)
        return;
 
       // write logging info 
-      string *RStr = GetRecordDescription(Record);
-      if (RawLogFile)
-       fprintf("Record %i: %s\n",NumRecords,RStr->c_str());
-      delete RStr;
+      //string *RStr = GetRecordDescription(Record);
+      //if (RawLogFile)
+      // fprintf("Record %i: %s\n",NumRecords,RStr->c_str());
+      //delete RStr;
 
       DestroyGDSIIRecord(Record);
     };
    fclose(f);
 
+   /*--------------------------------------------------------------*/
+   /*--------------------------------------------------------------*/
+   /*--------------------------------------------------------------*/
+   for(size_t ns=0; ns<Structs.size(); ns++)
+    for(size_t ne=0; ne<Structs[ns]->Elements.size(); ne++)
+     { GDSIIElement *e=Structs[ns]->Elements[ne];
+       if(e->Type==SREF || e->Type==AREF)
+        { e->nsRef = GetStructByName( *(e->SName) );
+          if (e->nsRef==-1)
+           { ErrMsg = new string( string("reference to unknown struct") + *(e->SName) );
+             return ;
+           };
+          Structs[e->nsRef]->IsReferenced=true;
+        };
+     };
+
    if (ErrMsg==0)
-    printf("Read %i data records from file %s.\n",Data.NumRecords,FileName.c_str());
+    printf("Read %i data records from file %s.\n",
+            PState.NumRecords,FileName.c_str());
 
  }
 
 /***************************************************************/
-/* GDSIIData constructor: create a new GDSIIData instance from */
-/* a binary GDSII file.                                        */
+/* Write text description of GDSII file to FileName.           */
 /***************************************************************/
-GDSIIData::GDSIIData(const string FileName)
- { 
-   // initialize class data
-   LibName   = 0;
-   Unit      = 1.0e-6;
-   FileUnits[0]=FileUnits=[1]=0.0;
+void GDSIIData::WriteDescription(const char *FileName)
+{
+  FILE *f = (FileName == 0 ? stdout : fopen(FileName,"w") );
 
-   ReadGDSIIFile(FileName);
-   if (ErrMsg) return;
- }
+  fprintf(f,"Library %s:\n\n",LibName->c_str());
+  for(size_t ns=0; ns<Structs.size(); ns++)
+   { 
+     GDSIIStruct *s=Structs[ns];
+     fprintf(f,"\n  Struct %3i: %s\n",(int )ns,s->Name->c_str());
+
+    for(size_t ne=0; ne<s->Elements.size(); ne++)
+     { GDSIIElement *e=s->Elements[ne];
+       fprintf(f,"  Element %i: %s (layer %i, datatype %i)",
+                    (int )ne, ElTypeNames[e->Type], e->Layer, e->DataType);
+       if (e->SName)          
+        fprintf(f,"(structure %s)",e->SName->c_str());
+       if (e->Text)          
+        fprintf(f,"(text %s)",e->Text->c_str());
+       if (e->Columns!=0 || e->Rows!=0)          
+        fprintf(f,"(%i x %i array)",e->Columns,e->Rows);
+       fprintf(f,":\n    ");
+
+       for(size_t nxy=0; nxy<e->XY.size(); nxy++)
+        fprintf(f,"%i ",e->XY[nxy]);
+       fprintf(f,"\n\n");
+     };
+   };
+  if (FileName)
+   fclose(f);
+}
 
 /***************************************************************/
 /* non-class utility method to print a raw dump of all data    */
 /* records in a GDSII file                                     */
 /***************************************************************/
-bool DumpGDSIIFile(const char *FileName)
+bool DumpGDSIIFile(const char *GDSIIFileName)
 {
-  FILE *f=fopen(FileName,"r");
+  FILE *f=fopen(GDSIIFileName,"r");
   if (!f)
-   { fprintf(stderr,"error: could not open %s (aborting)\n",FileName);
+   { fprintf(stderr,"error: could not open %s (aborting)\n",GDSIIFileName);
      return false;
    };
 
@@ -582,7 +782,7 @@ bool DumpGDSIIFile(const char *FileName)
    };
   fclose(f);
 
-  printf("Read %i data records from file %s.\n",NumRecords,FileName);
+  printf("Read %i data records from file %s.\n",NumRecords,GDSIIFileName);
   return true;
 }
 
