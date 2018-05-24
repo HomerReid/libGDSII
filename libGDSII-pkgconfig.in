@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libGDSII
+Description: Processing of GDSII files to define geometries for open-source computational electromagnetism codes
+Version: @VERSION@
+Libs: -L${libdir} -lGDSII
+Cflags: -I${includedir}

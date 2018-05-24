@@ -28,45 +28,9 @@
 #include <string>
 
 #include "libGDSII.h"
-
-using namespace std;
-using namespace libGDSII;
+#include "GDSIIOptions.h"
 
 int main(int argc, char *argv[])
 {
-  /***************************************************************/
-  /* check command-line parameters *******************************/
-  /***************************************************************/
-  if ( argc<2 )
-   { printf("usage: DumpGDSIIFile File.gds [--raw]\n");
-     exit(1);
-   };
-  string *GDSIIFile = new string(argv[1]);
-
-  bool RawMode=false;
-  if ( argc>=3 && !strcasecmp(argv[2],"--raw"))
-   RawMode=true;
-
-  /***************************************************************/
-  /***************************************************************/
-  /***************************************************************/
-  if (RawMode)
-   { DumpGDSIIFile(GDSIIFile->c_str());
-     exit(1);
-   };
-
-  /***************************************************************/
-  /* attempt to read in the file *********************************/
-  /***************************************************************/
-  GDSIIData *gdsIIData = new GDSIIData(*GDSIIFile);
-  if (gdsIIData->ErrMsg)
-   { printf("error: %s (aborting)\n",gdsIIData->ErrMsg->c_str());
-     exit(1);
-   };
-
-  /***************************************************************/
-  /***************************************************************/
-  /***************************************************************/
-  gdsIIData->WriteDescription();
-
+  GDSIIOptions *Options = ProcessGDSIIOptions(argc, argv);
 }

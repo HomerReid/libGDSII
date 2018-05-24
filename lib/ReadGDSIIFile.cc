@@ -113,7 +113,7 @@ string *handleUNITS(GDSIIRecord *Record, ParseState *PState)
 { 
   PState->Data->FileUnits[0] = Record->dVal[0];
   PState->Data->FileUnits[1] = Record->dVal[1];
-  PState->Data->Unit = 
+  PState->Data->UnitInMeters =
    PState->Data->FileUnits[1] / PState->Data->FileUnits[0];
   return 0;
 }
@@ -136,6 +136,7 @@ string *handleBGNSTR(GDSIIRecord *Record, ParseState *PState)
   // add a new structure
   GDSIIStruct *s  = new GDSIIStruct;
   s->IsReferenced = false;
+  s->IsPCell      = false;
   PState->CurrentStruct = s;
   PState->Data->Structs.push_back(s);
 
@@ -149,6 +150,8 @@ string *handleSTRNAME(GDSIIRecord *Record, ParseState *PState)
   if (PState->Status!=ParseState::INSTRUCT)
    return new string("unexpected record STRNAME");
   PState->CurrentStruct->Name = new string( *(Record->sVal) );
+  if( strcasestr( Record->sVal->c_str(), "CONTEXT_INFO") )
+   PState->CurrentStruct->IsPCell=true;
   return 0;
 }
 
@@ -174,11 +177,18 @@ string *handleElement(GDSIIRecord *Record, ParseState *PState, ElementType ElTyp
   e->Type     = ElType;
   e->Layer    = 0;
   e->DataType = 0;
+  e->TextType = 0;
+  e->PathType = 0;
   e->SName    = 0;
   e->Width    = 0;
   e->Columns  = 0;
   e->Rows     = 0;
   e->Text     = 0;
+  e->Refl     = false;
+  e->AbsMag   = false;
+  e->AbsAngle = false;
+  e->Mag      = 1.0;
+  e->Angle    = 0.0;
   e->nsRef    = -1;
   PState->CurrentElement = e;
   PState->CurrentStruct->Elements.push_back(e);
@@ -213,6 +223,8 @@ string *handleLAYER(GDSIIRecord *Record, ParseState *PState)
   if (PState->Status!=ParseState::INELEMENT)
    return new string("unexpected record LAYER");
   PState->CurrentElement->Layer = Record->iVal[0];
+  PState->Data->LayerSet.insert(Record->iVal[0]);
+  
   return 0;
 }
 
@@ -221,6 +233,76 @@ string *handleDATATYPE(GDSIIRecord *Record, ParseState *PState)
   if (PState->Status!=ParseState::INELEMENT)
    return new string("unexpected record DATATYPE");
   PState->CurrentElement->DataType = Record->iVal[0];
+  return 0;
+}
+
+string *handleTEXTTYPE(GDSIIRecord *Record, ParseState *PState)
+{ 
+  if (    PState->Status!=ParseState::INELEMENT
+       || PState->CurrentElement->Type!=TEXT
+     )
+   return new string("unexpected record TEXTTYPE");
+  PState->CurrentElement->TextType = Record->iVal[0];
+  return 0;
+}
+
+string *handlePATHTYPE(GDSIIRecord *Record, ParseState *PState)
+{ 
+  if (    PState->Status!=ParseState::INELEMENT )
+   return new string("unexpected record PATHTYPE");
+  PState->CurrentElement->PathType = Record->iVal[0];
+  return 0;
+}
+
+string *handleSTRANS(GDSIIRecord *Record, ParseState *PState)
+{ 
+  if ( PState->Status!=ParseState::INELEMENT )
+   return new string("unexpected record STRANS");
+  PState->CurrentElement->Refl     = Record->Bits[0];
+  PState->CurrentElement->AbsMag   = Record->Bits[13];
+  PState->CurrentElement->AbsAngle = Record->Bits[14];
+  return 0;
+}
+
+string *handleMAG(GDSIIRecord *Record, ParseState *PState)
+{ 
+  if ( PState->Status!=ParseState::INELEMENT )
+   return new string("unexpected record MAG");
+  PState->CurrentElement->Mag = Record->dVal[0];
+  return 0;
+}
+
+string *handleANGLE(GDSIIRecord *Record, ParseState *PState)
+{ 
+  if ( PState->Status!=ParseState::INELEMENT )
+   return new string("unexpected record ANGLE");
+  PState->CurrentElement->Angle = Record->dVal[0];
+  return 0;
+}
+
+string *handlePROPATTR(GDSIIRecord *Record, ParseState *PState)
+{ 
+  if ( PState->Status!=ParseState::INELEMENT )
+   return new string("unexpected record PROPATTR");
+  GDSIIElement *e=PState->CurrentElement;
+  e->PropAttrs.push_back(Record->iVal[0]);
+  e->PropValues.push_back("");
+  return 0;
+}
+
+string *handlePROPVALUE(GDSIIRecord *Record, ParseState *PState)
+{
+  if ( PState->Status!=ParseState::INELEMENT )
+   return new string("unexpected record PROPVALUE");
+  GDSIIElement *e=PState->CurrentElement;
+  int n=e->PropAttrs.size();
+  if (n==0)
+   return new string("PROPVALUE without PROPATTR");
+  e->PropValues[n-1]=string( *(Record->sVal) );
+
+  if( strcasestr( Record->sVal->c_str(), "CONTEXT_INFO") )
+   PState->CurrentStruct->IsPCell=true;
+
   return 0;
 }
 
@@ -314,25 +396,25 @@ const static RecordType RecordTypes[]={
  /*0x0c*/  {"TEXT",         NO_DATA,     handleTEXT},
  /*0x0d*/  {"LAYER",        INTEGER_2,   handleLAYER},
  /*0x0e*/  {"DATATYPE",     INTEGER_2,   handleDATATYPE},
- /*0x0f*/  {"WIDTH",        INTEGER_4,   0},
+ /*0x0f*/  {"WIDTH",        INTEGER_4,   handleWIDTH},
  /*0x10*/  {"XY",           INTEGER_4,   handleXY},
  /*0x11*/  {"ENDEL",        NO_DATA,     handleENDEL},
  /*0x12*/  {"SNAME",        STRING,      handleSNAME},
  /*0x13*/  {"COLROW",       INTEGER_2,   handleCOLROW},
  /*0x14*/  {"TEXTNODE",     NO_DATA,     0},
  /*0x15*/  {"NODE",         NO_DATA,     0},
- /*0x16*/  {"TEXTTYPE",     INTEGER_2,   0},
+ /*0x16*/  {"TEXTTYPE",     INTEGER_2,   handleTEXTTYPE},
  /*0x17*/  {"PRESENTATION", BITARRAY,    0},
  /*0x18*/  {"UNUSED",       NO_DATA,     0},
  /*0x19*/  {"STRING",       STRING,      handleSTRING},
- /*0x1a*/  {"STRANS",       BITARRAY,    0},
- /*0x1b*/  {"MAG",          REAL_8,      0},
- /*0x1c*/  {"ANGLE",        REAL_8,      0},
+ /*0x1a*/  {"STRANS",       BITARRAY,    handleSTRANS},
+ /*0x1b*/  {"MAG",          REAL_8,      handleMAG},
+ /*0x1c*/  {"ANGLE",        REAL_8,      handleANGLE},
  /*0x1d*/  {"UNUSED",       NO_DATA,     0},
  /*0x1e*/  {"UNUSED",       NO_DATA,     0},
  /*0x1f*/  {"REFLIBS",      STRING,      0},
  /*0x20*/  {"FONTS",        STRING,      0},
- /*0x21*/  {"PATHTYPE",     INTEGER_2,   0},
+ /*0x21*/  {"PATHTYPE",     INTEGER_2,   handlePATHTYPE},
  /*0x22*/  {"GENERATIONS",  INTEGER_2,   0},
  /*0x23*/  {"ATTRTABLE",    STRING,      0},
  /*0x24*/  {"STYPTABLE",    STRING,      0},
@@ -342,8 +424,8 @@ const static RecordType RecordTypes[]={
  /*0x1d*/  {"LINKTYPE",     NO_DATA,     0},
  /*0x1e*/  {"LINKKEYS",     NO_DATA,     0},
  /*0x2a*/  {"NODETYPE",     INTEGER_2,   0},
- /*0x2b*/  {"PROPATTR",     INTEGER_2,   0},
- /*0x2c*/  {"PROPVALUE",    STRING,      0},
+ /*0x2b*/  {"PROPATTR",     INTEGER_2,   handlePROPATTR},
+ /*0x2c*/  {"PROPVALUE",    STRING,      handlePROPVALUE},
  /*0x2d*/  {"BOX",          NO_DATA,     0},
  /*0x2e*/  {"BOXTYPE",      INTEGER_2,   0},
  /*0x2f*/  {"PLEX",         INTEGER_4,   0},
@@ -448,6 +530,31 @@ double ConvertReal(BYTE *Bytes, DataType DType)
   return Sign * Mantissa * pow(2.0, 4*Exponent - NumMantissaBits);
 }
 
+
+// The allowed characters are [a-zA-Z?$_].
+// Non-allowed characters at the end of the string are removed.
+// Non-allowed characters not at the end of the string are converted to underscores.
+bool IsAllowedChar(char c)
+{ c=tolower(c);
+  return ('a' <= c && c <= 'z') || c=='$' || c=='_' || c=='?';
+}
+
+string *MakeGDSIIString(char *Original, int Size)
+{ 
+  if (Size==0) return new string("");
+
+  if (Size>32) Size=32;
+  char RawString[33];
+  strncpy(RawString, Original, Size);
+  RawString[Size]=0;
+  int L = strlen(RawString);
+  while ( L>0 && !IsAllowedChar(RawString[L-1]) )
+   RawString[--L] = 0;
+  for(int n=0; n<L; n++) 
+   if (!IsAllowedChar(RawString[n])) RawString[n]='_';
+  return new string(RawString);
+}
+
 /***************************************************************/
 /* read a single GDSII data record from the current file position */
 /***************************************************************/
@@ -478,7 +585,8 @@ GDSIIRecord *ReadGDSIIRecord(FILE *f, string **ErrMsg)
         << ": data type disagrees with record type ("
         << DType
         << " != "
-        << RecordTypes[RType].DType;
+        << RecordTypes[RType].DType
+        << ")";
      *ErrMsg = new string(ss.str());
      return 0;
    };
@@ -493,13 +601,13 @@ GDSIIRecord *ReadGDSIIRecord(FILE *f, string **ErrMsg)
      if (Payload==0)
       { *ErrMsg = new string("out of memory");
         return 0;
-      };
+      }
      if ( PayloadSize != fread(Payload, 1, PayloadSize, f) )
       { free(Payload);
         *ErrMsg = new string("unexpected end of file");
         return 0;
-      };
-   };
+      }
+   }
  
   /*--------------------------------------------------------------*/
   /* allocate space for the record and process payload data       */
@@ -525,7 +633,7 @@ GDSIIRecord *ReadGDSIIRecord(FILE *f, string **ErrMsg)
 
      case STRING:
       Record->NumVals=1;
-      Record->sVal = new string( (char *)Payload );
+      Record->sVal = MakeGDSIIString( (char *)Payload, PayloadSize );
       break;
 
      case INTEGER_2:
@@ -676,6 +784,8 @@ void GDSIIData::ReadGDSIIFile(const string FileName)
       RecordHandler Handler = RecordTypes[Record->RType].Handler;
       if ( Handler )
        ErrMsg = Handler(Record, &PState);
+      else 
+       Warn("ignoring unsupported record %s",RecordTypes[Record->RType].Name);
       if (ErrMsg)
        return;
 
@@ -689,8 +799,12 @@ void GDSIIData::ReadGDSIIFile(const string FileName)
     };
    fclose(f);
 
+   for(set<int>::iterator it=LayerSet.begin(); it!=LayerSet.end(); it++)
+    Layers.push_back(*it);
+
    /*--------------------------------------------------------------*/
-   /*--------------------------------------------------------------*/
+   /*- Go back through the hierarchy to note which structures are  */
+   /*- referenced by others.                                       */
    /*--------------------------------------------------------------*/
    for(size_t ns=0; ns<Structs.size(); ns++)
     for(size_t ne=0; ne<Structs[ns]->Elements.size(); ne++)
@@ -698,18 +812,27 @@ void GDSIIData::ReadGDSIIFile(const string FileName)
        if(e->Type==SREF || e->Type==AREF)
         { e->nsRef = GetStructByName( *(e->SName) );
           if (e->nsRef==-1)
-           { ErrMsg = new string( string("reference to unknown struct") + *(e->SName) );
-             return ;
-           };
-          Structs[e->nsRef]->IsReferenced=true;
-        };
-     };
+           Warn("reference to unknown struct %s ",e->SName->c_str());
+          else 
+           Structs[e->nsRef]->IsReferenced=true;
+        }
+     }
+
+   /*--------------------------------------------------------------*/
+   /*- Finally, flatten the hierarchy to obtain unstructured lists */
+   /*- of polygons and text labels on each layer.                  */
+   /*--------------------------------------------------------------*/
+   Flatten();
+
+   /*--------------------------------------------------------------*/
+   /*--------------------------------------------------------------*/
+   /*--------------------------------------------------------------*/
 
    if (ErrMsg==0)
     printf("Read %i data records from file %s.\n",
             PState.NumRecords,FileName.c_str());
 
- }
+}
 
 /***************************************************************/
 /* Write text description of GDSII file to FileName.           */
@@ -718,23 +841,41 @@ void GDSIIData::WriteDescription(const char *FileName)
 {
   FILE *f = (FileName == 0 ? stdout : fopen(FileName,"w") );
 
-  fprintf(f,"Library %s:\n\n",LibName->c_str());
+  fprintf(f,"*\n");
+  fprintf(f,"* File %s: \n",GDSIIFileName->c_str());
+  if (LibName)
+   fprintf(f,"* Library %s: \n",LibName->c_str());
+  fprintf(f,"* Unit=%e meters (file units = {%e,%e})\n",UnitInMeters,FileUnits[0],FileUnits[1]);
+  fprintf(f,"*\n");
+
+  fprintf(f,"**************************************************\n");
+
+  fprintf(f,"** Library %s:\n",LibName->c_str());
+  fprintf(f,"**************************************************\n");
   for(size_t ns=0; ns<Structs.size(); ns++)
    { 
      GDSIIStruct *s=Structs[ns];
-     fprintf(f,"\n  Struct %3i: %s\n",(int )ns,s->Name->c_str());
+     fprintf(f,"--------------------------------------------------\n");
+     fprintf(f,"** Struct %i: %s\n",(int )ns,s->Name->c_str());
+     fprintf(f,"--------------------------------------------------\n");
 
     for(size_t ne=0; ne<s->Elements.size(); ne++)
      { GDSIIElement *e=s->Elements[ne];
-       fprintf(f,"  Element %i: %s (layer %i, datatype %i)",
+       fprintf(f,"  Element %i: %s (layer %i, datatype %i)\n",
                     (int )ne, ElTypeNames[e->Type], e->Layer, e->DataType);
-       if (e->SName)          
-        fprintf(f,"(structure %s)",e->SName->c_str());
-       if (e->Text)          
-        fprintf(f,"(text %s)",e->Text->c_str());
+       if (e->Type==PATH || e->Type==TEXT)
+        fprintf(f,"    (width %i, pathtype %i)\n",e->Width, e->PathType);
+       if (e->Text)
+        fprintf(f,"    (text %s)\n",e->Text->c_str());
+       if (e->SName)
+        fprintf(f,"    (structure %s)\n",e->SName->c_str());
+       if (e->Mag!=1.0 || e->Angle!=0.0)
+        fprintf(f,"    (mag %g, angle %g)\n",e->Mag,e->Angle);
        if (e->Columns!=0 || e->Rows!=0)          
-        fprintf(f,"(%i x %i array)",e->Columns,e->Rows);
-       fprintf(f,":\n    ");
+        fprintf(f,"    (%i x %i array)\n",e->Columns,e->Rows);
+       for(int n=0; n<e->PropAttrs.size(); n++)
+        fprintf(f,"    (attribute %i: %s)\n",e->PropAttrs[n],e->PropValues[n].c_str());
+       fprintf(f,"     XY: ");
 
        for(size_t nxy=0; nxy<e->XY.size(); nxy++)
         fprintf(f,"%i ",e->XY[nxy]);
