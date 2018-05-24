@@ -51,6 +51,8 @@ AC_CONFIG_FILES([
  libGDSII-pkgconfig
  lib/Makefile
  applications/Makefile
+ examples/Makefile
+ examples/bend-flux/Makefile
 ])
 AC_OUTPUT
 
