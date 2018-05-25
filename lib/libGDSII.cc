@@ -7,7 +7,7 @@
 %
 %  This program is distributed in the hope that it will be useful,
 %  but WITHOUT ANY WARRANTY; without even the implied warranty of
-%  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+%  MERCHANTABILITY or FITNESS FOR A PARTICULAh  PURPOSE.  See the
 %  GNU General Public License for more details.
 %
 %  You should have received a copy of the GNU General Public License
@@ -50,6 +50,27 @@ GDSIIData::GDSIIData(const string FileName)
   if (ErrMsg) return;
 }
 
+GDSIIData::~GDSIIData()
+{
+  if (GDSIIFileName) delete GDSIIFileName;
+  if (ErrMsg) delete ErrMsg;
+  for(size_t ns=0; ns<Structs.size(); ns++)
+   { for(size_t ne=0; ne<Structs[ns]->Elements.size(); ne++)
+      { if (Structs[ns]->Elements[ne]->SName) delete Structs[ns]->Elements[ne]->SName;
+        if (Structs[ns]->Elements[ne]->Text)  delete Structs[ns]->Elements[ne]->Text;
+        delete Structs[ns]->Elements[ne];
+      }
+     if (Structs[ns]->Name) delete Structs[ns]->Name;
+     delete Structs[ns];
+   }
+
+  for(size_t nl=0; nl<ETable.size(); nl++)
+   for(size_t ne=0; ne<ETable[nl].size(); ne++)
+    { if (ETable[nl][ne].Text) free(ETable[nl][ne].Text);
+      if (ETable[nl][ne].Label) free(ETable[nl][ne].Label);
+    }
+}
+
 /***************************************************************/
 /***************************************************************/
 /***************************************************************/
@@ -61,8 +82,80 @@ int GDSIIData::GetStructByName(string Name)
 }
 
 /***************************************************************/
-/* geometric primitives ****************************************/
 /***************************************************************/
+/***************************************************************/
+iVec GDSIIData::GetLayers()
+{ return Layers; }
+
+PolygonList GDSIIData::GetPolygons(char *Text, int Layer)
+{
+  PolygonList Polygons;
+  
+  // first pass to find text strings matching Text, if it is non-NULL
+  int TextLayer=-1;
+  double TextXY[2]={HUGE_VAL, HUGE_VAL};
+  if (Text)
+   { for(size_t nl=0; nl<Layers.size() && TextLayer==-1; nl++)
+      { if (Layer!=-1 && Layers[nl]!=Layer) continue;
+        for(size_t ne=0; ne<ETable[nl].size() && TextLayer==-1; ne++)
+         if ( ETable[nl][ne].Text && !strcmp(ETable[nl][ne].Text,Text) )
+          { TextLayer  = Layers[nl];
+            TextXY[0]  = ETable[nl][ne].XY[0];
+            TextXY[1]  = ETable[nl][ne].XY[1];
+          }
+      }
+     if (TextLayer==-1) return Polygons; // text string not found, return empty list
+   }
+
+  if (TextLayer!=-1) Layer=TextLayer;
+
+  // second pass to find matching polygons
+  for(size_t nl=0; nl<Layers.size(); nl++)
+   { if (Layer!=-1 && Layers[nl]!=Layer) continue;
+     for(size_t ne=0; ne<ETable[nl].size(); ne++)
+      { if (ETable[nl][ne].Text!=0) continue; // we want only polygons here
+        if (TextLayer==-1 || PointInPolygon(ETable[nl][ne].XY, TextXY[0], TextXY[1]))
+         Polygons.push_back(ETable[nl][ne].XY);
+      }
+   }
+  return Polygons;
+}
+
+PolygonList GDSIIData::GetPolygons(int Layer) 
+ { return GetPolygons(0,Layer); }
+
+/***************************************************************/
+/* the next few routines implement a mechanism by which an API */
+/* code can make multiple calls to GetPolygons() for a given   */
+/* GDSII file without requiring the API code to keep track of  */
+/* an instance of GDSIIData, but also without re-reading the   */
+/* file each time;                                             */
+/***************************************************************/
+static GDSIIData *CachedGDSIIData=0;
+
+void ClearGDSIICache()
+{ if (CachedGDSIIData) delete CachedGDSIIData;
+  CachedGDSIIData=0;
+}
+
+void OpenGDSIIFile(char *GDSIIFileName)
+{ 
+  if (CachedGDSIIData && !strcmp(CachedGDSIIData->GDSIIFileName->c_str(),GDSIIFileName) )
+   return;
+  else if (CachedGDSIIData) 
+   ClearGDSIICache();
+  CachedGDSIIData = new GDSIIData(GDSIIFileName);
+  if (CachedGDSIIData->ErrMsg)
+   GDSIIData::ErrExit(CachedGDSIIData->ErrMsg->c_str());
+}
+  
+PolygonList GetPolygons(char *GDSIIFile, char *Label, int Layer)
+{ OpenGDSIIFile(GDSIIFile);
+  return CachedGDSIIData->GetPolygons(Label,Layer);
+}
+
+PolygonList GetPolygons(char *GDSIIFile, int Layer)
+ { return GetPolygons(GDSIIFile, 0, Layer); }
 
 /***************************************************************/
 /* find the value of s at which the line p+s*d intersects the  */
@@ -99,7 +192,6 @@ bool intersect_ray_with_segment(double px, double py, double dx, double dy,
   return (intersect_line_with_segment(px,py,dx,dy,v1,v2,s) && *s>0.0);
 }
 
-
 /***************************************************************/
 /* 2D point-in-polygon test: return 1 if the point lies within */
 /* the polygon with the given vertices, 0 otherwise.           */
@@ -123,11 +215,9 @@ bool PointInPolygon(dVec Vertices, double X, double Y)
   return (num_side_intersections%2)==1;
 }
 
-
-
 /***************************************************************/
 /* utility routines from libhrutil, duplicated here to avoid   */
-/* the dependency                                              */
+/* that dependency                                             */
 /***************************************************************/
 bool GDSIIData::Verbose=false;
 char *GDSIIData::LogFileName=0;
@@ -143,6 +233,8 @@ void GDSIIData::Log(const char *format, ...)
   FILE *f=0;
   if (LogFileName && !strcmp(LogFileName,"stderr"))
    f=stderr;
+  else if (LogFileName && !strcmp(LogFileName,"stdout"))
+   f=stdout;
   else if (LogFileName)
    f=fopen(LogFileName,"a");
   if (!f) return;
@@ -152,10 +244,10 @@ void GDSIIData::Log(const char *format, ...)
   MyTime=time(0);
   MyTm=localtime(&MyTime);
   char TimeString[30];
-  strftime(buffer,30,"%D::%T",MyTm);
-  fprintf(f,"%s: %s",TimeString,buffer);
+  strftime(TimeString,30,"%D::%T",MyTm);
+  fprintf(f,"%s: %s\n",TimeString,buffer);
 
-  if (f!=stderr) fclose(f);
+  if (f!=stderr && f!=stdout) fclose(f);
 }
 
 void GDSIIData::ErrExit(const char *format, ...)
@@ -219,3 +311,10 @@ char *GDSIIData::vstrdup(const char *format, ...)
 }
 
 } // namespace libGSDII
+
+/***************************************************************/
+/* crutch function to play nice with autotools *****************/
+/***************************************************************/
+extern "C" {
+void libGDSIIExists(){}
+}

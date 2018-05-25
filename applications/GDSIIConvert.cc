@@ -25,6 +25,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <unistd.h>
 #include <math.h>
 
 #include "libGDSII.h"
@@ -253,7 +254,7 @@ void WriteGeometryAndPorts(GDSIIData *gdsIIData, GDSIIOptions *Options)
               PortStrings[1].resize(NumPorts,0);
             }
            bool PolygonFound=false; 
-           for(int nep=0; !PolygonFound && nep<Entities.size(); nep++)
+           for(size_t nep=0; !PolygonFound && nep<Entities.size(); nep++)
             { Entity EPolygon = Entities[nep];
               if ( PointInPolygon(EPolygon.XY, EText.XY[0], EText.XY[1]) )
                { char *Line = GDSIIData::vstrdup("    %s ",Pol ? "NEGATIVE" : "POSITIVE");
@@ -330,6 +331,66 @@ void WriteGeometryAndPorts(GDSIIData *gdsIIData, GDSIIOptions *Options)
 /***************************************************************/
 /***************************************************************/
 /***************************************************************/
+#define MEMORY_USAGE_SLOTS 7
+#define MAXSTR 1000
+unsigned long GetMemoryUsage(unsigned long *MemoryUsage)
+{
+  if (MemoryUsage)
+   memset(MemoryUsage, 0, MEMORY_USAGE_SLOTS*sizeof(MemoryUsage[0]));
+#if defined(_WIN32)
+  // don't know portable way to get memory usage on windows
+#else
+#if 1
+  FILE *f=fopen("/proc/self/status","r");
+  if (f)
+   { char Line[MAXSTR];
+     while(fgets(Line, MAXSTR, f))
+      { unsigned long mem;
+        if (1==sscanf(Line,"VmPeak: %lu kB",&mem))
+         MemoryUsage[0]=mem;
+        else if (1==sscanf(Line,"VmSize: %lu kB",&mem))
+         MemoryUsage[1]=mem;
+        else if (1==sscanf(Line,"VmHWM: %lu kB",&mem))
+         MemoryUsage[2]=mem;
+        else if (1==sscanf(Line,"VmRSS: %lu kB",&mem))
+         MemoryUsage[3]=mem;
+        else if (1==sscanf(Line,"VmData: %lu kB",&mem))
+         MemoryUsage[4]=mem;
+        else if (1==sscanf(Line,"VmPTE:  %lu kB",&mem))
+         MemoryUsage[5]=mem;
+        else if (1==sscanf(Line,"VmPMD:  %lu kB",&mem))
+         MemoryUsage[6]=mem;
+      } 
+     fclose(f);
+   }
+#else
+  FILE *f=fopen("/proc/self/statm","r");
+  if (f)
+   { 
+     char Line[MAXSTR];
+     char *result=fgets(Line,MAXSTR,f);
+     fclose(f);
+     if (result==0) return 0;
+
+     unsigned long Mem[MEMORY_USAGE_SLOTS];
+     sscanf(Line,"%lu %lu %lu %lu %lu %lu %lu",
+                  Mem+0, Mem+1, Mem+2, Mem+3, Mem+4, Mem+5, Mem+6);
+
+     long sz = sysconf(_SC_PAGESIZE);
+     if (MemoryUsage)
+      for(int n=0; n<MEMORY_USAGE_SLOTS; n++)
+       MemoryUsage[n] = sz*Mem[n];
+
+     return sz*Mem[0];
+   }
+#endif
+#endif
+  return 0;
+}
+
+/***************************************************************/
+/***************************************************************/
+/***************************************************************/
 int main(int argc, char *argv[])
 {
   /***************************************************************/
@@ -342,6 +403,23 @@ int main(int argc, char *argv[])
   /***************************************************************/
   if (Options->Raw) DumpGDSIIFile(Options->GDSIIFile);
 
+#if 1
+{
+  if (GDSIIData::LogFileName==0) GDSIIData::LogFileName=strdup("/tmp/GDSIIConvert.log");
+  unsigned long MemBefore[MEMORY_USAGE_SLOTS];
+  unsigned long MemDuring[MEMORY_USAGE_SLOTS];
+  unsigned long MemAfter[MEMORY_USAGE_SLOTS];
+  GetMemoryUsage(MemBefore);
+  GDSIIData *gdsIIData  = new GDSIIData( string(Options->GDSIIFile) );
+  GetMemoryUsage(MemDuring);
+  delete gdsIIData;
+  GetMemoryUsage(MemAfter);
+  for(int n=0; n<MEMORY_USAGE_SLOTS; n++)
+   GDSIIData::Log("Mem[%i] before,during,after={%lu,%lu,%lu},delta=%lu",
+n,MemBefore[n],MemDuring[n],MemAfter[n],MemAfter[n]-MemBefore[n]);
+}
+#endif
+  
   /***************************************************************/
   /* try to read in the GDSII file                               */
   /***************************************************************/
@@ -362,6 +440,7 @@ int main(int argc, char *argv[])
   /****************************************************************/
   if (Options->WriteGMSH)
    WriteGeometryAndPorts(gdsIIData, Options);
+
 
   printf("Thank you for your support.\n");
 

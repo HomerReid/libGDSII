@@ -50,8 +50,16 @@ using namespace std;
   typedef vector<char *> sVec;
 #endif
 #ifndef strVec
-  typedef vector<string> strVec;
+  typedef vector<std::string> strVec;
 #endif
+
+/****************************************************************************************/
+/* A PolygonList is a collection of polygons living in the XY plane.                    */
+/* PolygonList.size() is the number of polygons in the list.                            */
+/* PolygonList[np].size()/2 is the number of vertices in polygon #np.                   */
+/* PolygonList[np][2*nv+0, 2*nv+1] are the x,y coordinates of vertex #nv in polygon #np.*/
+/****************************************************************************************/
+typedef vector<dVec> PolygonList;
 
 /***************************************************************/
 /* Data structures used to process GDSII files:                */
@@ -76,10 +84,10 @@ typedef struct GDSIIElement
    ElementType Type;
    int Layer, DataType, TextType, PathType;
    iVec XY;
-   string *SName;
+   std::string *SName;
    int Width, Columns, Rows;
    int nsRef;
-   string *Text;
+   std::string *Text;
    bool Refl, AbsMag, AbsAngle;
    double Mag, Angle;
    iVec PropAttrs;
@@ -91,7 +99,7 @@ typedef struct GDSIIStruct
    vector<GDSIIElement *> Elements;
    bool IsPCell;
    bool IsReferenced;
-   string *Name;
+   std::string *Name;
 
  } GDSIIStruct;
 
@@ -121,23 +129,33 @@ namespace libGDSII
      public:
       
        // construct from a binary GDSII file 
-       GDSIIData(const string FileName);
+       GDSIIData(const std::string FileName);
        ~GDSIIData();
 
        void WriteDescription(const char *FileName=0);
 
+       // list of layer indices
+       iVec GetLayers();
+
+       // get all polygons on layer Layer that contain the reference point of
+       // a GDSII text element matching Text (which must also lie on layer Layer).
+       // If Layer==-1, search all layers.
+       // If Text==NULL, return a list of all polygons on the given layer.
+       PolygonList GetPolygons(char *Text, int Layer=-1);
+       PolygonList GetPolygons(int Layer);
+
      /*--------------------------------------------------------*/
      /* API data fields                                        */
      /*--------------------------------------------------------*/
-      string *ErrMsg; // non-null upon failure of constructor or other API routine
+      std::string *ErrMsg; // non-null upon failure of constructor or other API routine
 
      /*--------------------------------------------------------*/
      /* methods intended for internal use                      */
      /*--------------------------------------------------------*/
 // private:
     // constructor helper methods
-      void ReadGDSIIFile(const string FileName);
-      int GetStructByName(string Name);
+      void ReadGDSIIFile(const std::string FileName);
+      int GetStructByName(std::string Name);
       void Flatten(double UnitInMM=1.0);
 
      /*--------------------------------------------------------*/
@@ -145,8 +163,8 @@ namespace libGDSII
      /*--------------------------------------------------------*/
 
      // general info on the GDSII file
-     string *LibName;
-     string *GDSIIFileName;
+     std::string *LibName;
+     std::string *GDSIIFileName;
      double FileUnits[2], UnitInMeters;
      set<int> LayerSet; 
      iVec Layers;
@@ -175,6 +193,18 @@ namespace libGDSII
 /***************************************************************/
 bool PointInPolygon(dVec Vertices, double X, double Y);
 
+/***********************************************************************/
+/* the next few routines implement a caching mechanism by which an API */
+/* code can make multiple calls to GetPolygons() for a given GDSII file*/
+/* without requiring the API code to keep track of a GDSIIData         */
+/* instance, but also without re-reading the file each time.           */
+/* After the final such call the API code may call ClearGDSIICache()   */
+/* to free memory allocated for the cache.                             */
+/***********************************************************************/
+PolygonList GetPolygons(char *GDSIIFile, char *Text, int Layer=-1);
+PolygonList GetPolygons(char *GDSIIFile, int Layer);
+void ClearGDSIICache();
+
 /***************************************************************/
 /* non-class method utility routines                           */
 /***************************************************************/
@@ -184,5 +214,12 @@ void WriteGMSHEntity(Entity E, int Layer, char *geoFileName, FILE **pgeoFile,
 void WriteGMSHFile(EntityTable ETable, iVec Layers, char *FileBase, bool SeparateLayers=false);
 
 } /* namespace libGDSII */
+
+/***************************************************************/
+/* crutch function to play nice with autotools *****************/
+/***************************************************************/
+extern "C" {
+  void libGDSIIExists();
+}
 
 #endif /* LIBGDSII_H*/
