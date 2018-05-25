@@ -104,10 +104,10 @@ typedef struct GDSIIStruct
  } GDSIIStruct;
 
 typedef struct Entity
- { dVec XY;
-   char *Text;
-   char *Label;
-   bool Closed;
+ { char *Text;   // if NULL, the entity is a polygon; otherwise it is a text string
+   dVec XY;      // vertex coordinates: 2 for a text string, 2N for an N-gon
+   bool Closed;  // true if there exists an edge connecting the last to the first vertex
+   char *Label;  // optional descriptive text, may be present or absent for polygons and texts
  } Entity;
 
 typedef vector<Entity>     EntityList;
@@ -173,8 +173,7 @@ namespace libGDSII
      vector<GDSIIStruct *> Structs;
 
      // table of entities (flattened)
-     // ETable[nl] = unsorted vector of entities on layer # Layers[nl]
-     EntityTable ETable;
+     EntityTable ETable; // ETable[nl][ne] = #neth entity on layer Layers[nl]
 
      /*--------------------------------------------------------*/
      /*- utility routines -------------------------------------*/

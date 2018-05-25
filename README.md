@@ -143,7 +143,7 @@ Read 2080 data records from file GSiP_4_RingFilter.gds.
 Thank you for your support.
 ```
 
-## Print low-level description of GDSII file structure:
+## Print low-level description of GDSII file structure (data records)
 
 ```bash
 
@@ -187,6 +187,10 @@ Thank you for your support.
 # Sample usage of `libGDSII` API routines
 --------------------------------------------------
 
+--------------------------------------------------
+## Lightning overview of the `libGDSII` API
+--------------------------------------------------
+
 `libGDSII` exports a C++ class called `GDSIIData,` whose
 class constructor accepts the name of a binary GDSII file as input.
 
@@ -194,12 +198,28 @@ Internally, the constructor maintains both a *hierarchical* representation
 of the geometry (involving structures that instantiate other structures,
 arrays of structure elements, etc.) and a *flat* representation,
 consisting simply of collections of polygons and text labels,
-indexed by the layer on which they appeared.
+indexed by the layer on which they appeared. 
 
-The flat representation is simply a huge list of *entities*,
-where each entity is either a *polygon*  or *text label*
-plus a layer index indicating the layer of the GDSII geometry 
-on which the entity lies.
+The flat representation consists of 
+
++ an integer-valued array `Layers`, with `Layers[0], Layers[1], ...` the indices of the layers present in the GDSII file
++ for each layer, an array of `Entity` structures, where each `Entity` is either a polygon or a text string:
+
+```C++
+
+std::vector<int> Layers;     // Layers[nl] = index of layer #nl in GDSII file
+
+typedef struct Entity
+ { char *Text;   // if NULL, the entity is a polygon; otherwise it is a text string
+   dVec XY;      // vertex coordinates: 2 for a text string, 2N for an N-gon
+   bool Closed;  // true if there exists an edge connecting the last to the first vertex
+   char *Label;  // optional descriptive text, may be present or absent for polygons and texts
+ } Entity;
+
+typedef std::vector<Entity>     EntityList;
+typedef std::vector<EntityList> EntityTable;   // EntityTable[nl][ne] = #neth entity on layer Layers[nl]
+
+```
 
 In the flat representation, all GDSII geometry elements---including
 boundaries, boxes, paths, structure instantiations (`SREF`s), and
@@ -207,16 +227,31 @@ arrays (`AREF`s)---are reduced to polygons, described by lists
 of $N>1$ vertices, with each vertex having two coordinates (*x* and *y*).
 Thus the data of a polygon consists of an integer $N$ (number of vertices),
 $2N$ floating-point numbers (vertex coordinates), and an integer layer index.
-The $2N$ vertex coordinates are stored internally as a 
+The $2N$ vertex coordinates are stored internally as a
+`double`-valued `std::vector` in the `XY` field of the `Entity` data structure.
 
-The only other type of entity is a text label. The data of a text label
-consists of a character string (the label), two floating-point numbers
+If the entity is not a polygon, it is a text string. The data of a text string
+consists of a character string `*Text`, two floating-point numbers
 (*x,y*) specifying the *location* of the label (typically the
 centroid of the text), and a layer index.
 
-`GDSIIData` provides API routines for extracting polygons from a geometry
-by 
+`GDSIIData` provides API routines for extracting polygons from GDSII geometries.
+This can be done in a couple of ways:
 
++ You can ask for a list of all polygons on a given layer. If there is more than one polygon on the layer, you will get them all, in the form of an unsorted array.
+
++ You can specify a label (character string) and ask for only those polygons that contain the reference point of a text string, on the same layer, matching your string. You can restrict this search to a single layer, or search all layers in the file; in the latter case, only polygons that live on the same layer as the text string are returned.
+
+Arrays of polygons are returned in the form of a `vector` of `double`-valued `vectors`:
+
+```C++
+typedef vector<double> dVec;
+typedef vector<dVec> PolygonList; // PolygonList[np][2*nv+0,2*nv+1] = x,y coords of vertex #nv in polygon #np
+```C++
+
+--------------------------------------------------
+## Sample code
+--------------------------------------------------
 
 ```C++
 
@@ -241,7 +276,57 @@ using namespace libGDSII;
   gdsIIData->WriteDescription("MyOutputFile");
 
   /***************************************************************/
+  /* get all polygons on layer 3 *********************************/
   /***************************************************************/
+  PolygonList Layer3Polygons = gdsIIData->GetPolygons(3);
+
+  printf("Found %lu polygons on layer 3: \n",Layer3Polygons.size());
+  for(size_t np=0; np<Layer3Polygons.size(); np++)
+   { printf("Polygon #%lu has vertices: ",np);
+     for(int nv=0; nv<Layer3Polygons[np].size()/2; nv++)
+      printf(" {%e,%e} ",Layer3Polygons[np][2*nv+0],Layer3Polygons[2*nv+1]);
+     printf("\n");
+   }
+
   /***************************************************************/
+  /* get all polygons on layer 3 that contain the reference point*/
+  /* of the text string "Geometry" (also on layer 3)             */
+  /***************************************************************/
+  PolygonList Layer3Polygons = gdsIIData->GetPolygons("Geometry", 3);
+
+  /***************************************************************/
+  /* get all polygons on any layer that contain the reference pt */
+  /* of the text string "Geometry" on the same layer             */
+  /***************************************************************/
+  PolygonList Layer3Polygons = gdsIIData->GetPolygons("Geometry");
+```
+
+--------------------------------------------------
+## Internally-cached data structure
+--------------------------------------------------
+In the above snippet, we create an instance of `class GSDIIData`
+and access the geometry by calling the class methods of this
+instance. `libGDSII` also provides an alternative interface
+in which you call non-class methods, passing only the GDSII file name:
+
+```C++
+
+  PolygonList Layer3Polygons = GetPolygons("MyGDSFile.GDS", 3);
+  PolygonList Layer3Geometry = GetPolygons("MyGDSFile.GDS", "Geometry", 3);
+
+  ...
+  ...
+
+  void ClearGDSIICache();
 
 ```
+In this case what is going on is that `libGDSII` is creating and internally
+storing a `GDSIIData` structure for the given GDS file. Successive 
+calls to `GetPolygons` with the same file name will re-use the cached data
+structure, saving the cost of re-rereading th GDS file. If you make 
+subsequent calls to `GetPolygons` with a new GDS file, the cached data will
+be destroyed and allocated anew for the new file.
+
+When finished with a sequence of `GetPolygons()` calls of this form,
+call `ClearGDSIICache()` to deallocate memory associated with the 
+internally-cached structures.
