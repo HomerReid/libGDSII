@@ -40,7 +40,7 @@ from the [SiEPIC-Tools](https://github.com/lukasc-ubc) project:
   ["Design and simulation of silicon photonic schematics and layouts,"](http://edx.org/course/silicon-photonics-design-fabrication-ubcx-phot1x)
   Proc. SPIE 9891, Silicon Photonics and Photonic Integrated Circuits V, 989114 (May 13, 2016); doi:10.1117/12.2230376.
 
-## Convert to [GMSH](http://gmsh.info) format
+## Convert to [GMSH](http://gmsh.info) format: Option `--gmsh`
 
 ```bash
 % GDSIIConvert --GMSH GSiP_4_RingFilter.gds
@@ -82,11 +82,11 @@ If you only want to extract polygons on a single layer, you can
 add e.g. `--MetalLayer 47` to the `GDSIIConvert` command line:
 
 ```bash
-% GDSIIConvert --GMSH --MetalLayer 47 GSiP_4_RingFilter.geo --FileBase GSIP_47.geo
-% GDSIIConvert --GMSH --MetalLayer 69 GSiP_4_RingFilter.geo --FileBase GSIP_69.geo
+% GDSIIConvert --GMSH --MetalLayer 47 GSiP_4_RingFilter.geo --FileBase GSIP_47
+% GDSIIConvert --GMSH --MetalLayer 69 GSiP_4_RingFilter.geo --FileBase GSIP_69
 ```
 
-## Print text description of geometry hierarchy:
+## Print text description of geometry hierarchy: Option `--analyze`
 
 ```bash
 
@@ -144,7 +144,7 @@ Read 2080 data records from file GSiP_4_RingFilter.gds.
 Thank you for your support.
 ```
 
-## Print low-level description of GDSII file structure (data records)
+## Print low-level description of GDSII file structure (data records): Option `--raw`
 
 ```bash
 
