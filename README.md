@@ -188,9 +188,7 @@ Thank you for your support.
 # Sample usage of `libGDSII` API routines
 --------------------------------------------------
 
---------------------------------------------------
-## Lightning overview of the `libGDSII` API
---------------------------------------------------
+## Overview of the `libGDSII` API
 
 `libGDSII` exports a C++ class called `GDSIIData,` whose
 class constructor accepts the name of a binary GDSII file as input.
@@ -218,17 +216,17 @@ typedef struct Entity
  } Entity;
 
 typedef std::vector<Entity>     EntityList;
-typedef std::vector<EntityList> EntityTable;   // EntityTable[nl][ne] = #neth entity on layer Layers[nl]
+typedef std::vector<EntityList> EntityTable;   // EntityTable[nl][ne] = entity #ne on layer Layers[nl]
 
 ```
 
 In the flat representation, all GDSII geometry elements---including
 boundaries, boxes, paths, structure instantiations (`SREF`s), and
 arrays (`AREF`s)---are reduced to polygons, described by lists
-of $N>1$ vertices, with each vertex having two coordinates (*x* and *y*).
+of *N>1* vertices, with each vertex having two coordinates (*x* and *y*).
 Thus the data of a polygon consists of an integer $N$ (number of vertices),
-$2N$ floating-point numbers (vertex coordinates), and an integer layer index.
-The $2N$ vertex coordinates are stored internally as a
+*2N* floating-point numbers (vertex coordinates), and an integer layer index.
+The *2N* vertex coordinates are stored internally as a
 `double`-valued `std::vector` in the `XY` field of the `Entity` data structure.
 
 If the entity is not a polygon, it is a text string. The data of a text string
