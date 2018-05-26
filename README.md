@@ -11,6 +11,8 @@ The packages consists of
 + a command-line executable code (`GDSIIConvert`) for reporting statistics on GDSII geometries and
   exporting them to other file formats, notably including the [GMSH](http://gmsh.info) geometry format.
 
+[TOC]
+
 --------------------------------------------------
 # Installation
 --------------------------------------------------
@@ -62,7 +64,7 @@ Detecting metallization structures on layer  81: ... 2 polygons on layer 81
 Detecting metallization structures on layer 733: ... 2 polygons on layer 733
 Wrote 345 metallization polygons to GSiP_4_RingFilter.geo.
 Thank you for your support.
-```bash
+```
 
 This produces two files: the GMSH geometry file `GSiP_4_RingFilter.geo,`
 describing the polygons, and the GMSH post-processing file `GSiP_4_RingFilter.pp`
