@@ -12,7 +12,6 @@ The packages consists of
   exporting them to other file formats, notably including the [GMSH](http://gmsh.info) geometry format.
 
 # Installation
---------------------------------------------------
 
 ```bash
 % git clone http://github.com/HomerReid/libGDSII
@@ -25,7 +24,6 @@ This will install the `GDSIIConvert` executable in `$(prefix)/bin`
 and the `libGDSII.a` and/or `libGDSII.so` library binaries in `$(prefix)/lib`.
 
 # Using the `GDSIIConvert` command-line tool
---------------------------------------------------
 
 The GDSII file referenced in the following examples is 
 [this silicon-photonics transceiver](https://github.com/lukasc-ubc/SiEPIC-Tools/blob/master/Examples/GSiP/RingModTransceiver/Layouts/GSiP_4_RingFilter.gds)
@@ -181,7 +179,7 @@ Thank you for your support.
 ```
 
 # Using the `libGDSII` API 
---------------------------------------------------
+
 
 ## Overview of the `libGDSII` API
 
@@ -316,7 +314,7 @@ in which you call non-class methods, passing only the GDSII file name:
 In this case what is going on is that `libGDSII` is creating and internally
 storing a `GDSIIData` structure for the given GDS file. Successive 
 calls to `GetPolygons` with the same file name will re-use the cached data
-structure, saving the cost of re-rereading th GDS file. If you make 
+structure, saving the cost of rereading the GDS file. If you make 
 subsequent calls to `GetPolygons` with a new GDS file, the cached data will
 be destroyed and allocated anew for the new file.
 
