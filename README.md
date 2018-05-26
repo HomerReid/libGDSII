@@ -9,7 +9,7 @@ The packages consists of
 + a C++ library (`libGDSII`)  with API functions for reading, processing, and exporting GDSII files
 
 + a command-line executable code (`GDSIIConvert`) for reporting statistics on GDSII geometries and
-  exporting them to other file formats, notably including the [GMSH](gmsh.info) geometry format.
+  exporting them to other file formats, notably including the [GMSH](http://gmsh.info) geometry format.
 
 --------------------------------------------------
 # Installation
@@ -23,7 +23,7 @@ The packages consists of
 ```
 
 This will install the `GDSIIConvert` executable in `$(prefix)/bin`
-and the `libGDSII.a` and/or `libGDSII.so` library binaries in $(prefix)/lib`.
+and the `libGDSII.a` and/or `libGDSII.so` library binaries in `$(prefix)/lib`.
 
 --------------------------------------------------
 # Sample usage of `GDSIIConvert` command-line tool
@@ -37,7 +37,6 @@ from the [SiEPIC-Tools](https://github.com/lukasc-ubc) project:
   Amy Liu, Jaspreet Jhoja, James Pond, 
   ["Design and simulation of silicon photonic schematics and layouts,"](http://edx.org/course/silicon-photonics-design-fabrication-ubcx-phot1x)
   Proc. SPIE 9891, Silicon Photonics and Photonic Integrated Circuits V, 989114 (May 13, 2016); doi:10.1117/12.2230376.
-```
 
 ## Convert to [GMSH](http://gmsh.info) format
 
