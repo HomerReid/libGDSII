@@ -248,7 +248,7 @@ Arrays of polygons are returned in the form of a `vector` of `double`-valued `ve
 ```C++
 typedef vector<double> dVec;
 typedef vector<dVec> PolygonList; // PolygonList[np][2*nv+0,2*nv+1] = x,y coords of vertex #nv in polygon #np
-```C++
+```
 
 --------------------------------------------------
 ## Sample code
