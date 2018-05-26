@@ -224,15 +224,17 @@ In the flat representation, all GDSII geometry elements---including
 boundaries, boxes, paths, structure instantiations (`SREF`s), and
 arrays (`AREF`s)---are reduced to polygons, described by lists
 of *N>1* vertices, with each vertex having two coordinates (*x* and *y*).
-Thus the data of a polygon consists of an integer $N$ (number of vertices),
-*2N* floating-point numbers (vertex coordinates), and an integer layer index.
-The *2N* vertex coordinates are stored internally as a
-`double`-valued `std::vector` in the `XY` field of the `Entity` data structure.
+The *2N* vertex coordinates are stored internally in the `XY` field
+of `Entity`, a `double`-valued `std::vector.` The `Closed` flag
+indicates whether or not the polygon includes an edge connecting 
+vertex *N* back to vertex *1*.
 
-If the entity is not a polygon, it is a text string. The data of a text string
-consists of a character string `*Text`, two floating-point numbers
-(*x,y*) specifying the *location* of the label (typically the
-centroid of the text), and a layer index.
+If the `Text` field of `Entity` is non-NULL, the entity is not a polygon,
+but is instead a text string. In this case the `XY` array has length 2,
+the (*x,y*) coordinates of the text reference point.
+
+Both polygons and text strings may be accompanied by
+optional descriptive text, stored in the `*Label` field of `Entity.`
 
 `GDSIIData` provides API routines for extracting polygons from GDSII geometries.
 This can be done in a couple of ways:
