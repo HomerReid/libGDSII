@@ -11,8 +11,6 @@ The packages consists of
 + a command-line executable code (`GDSIIConvert`) for reporting statistics on GDSII geometries and
   exporting them to other file formats, notably including the [GMSH](http://gmsh.info) geometry format.
 
-[TOC]
-
 --------------------------------------------------
 # Installation
 --------------------------------------------------
@@ -27,8 +25,8 @@ The packages consists of
 This will install the `GDSIIConvert` executable in `$(prefix)/bin`
 and the `libGDSII.a` and/or `libGDSII.so` library binaries in `$(prefix)/lib`.
 
---------------------------------------------------
-# Sample usage of `GDSIIConvert` command-line tool
+--------------------------------------------------$
+# Using the `GDSIIConvert` command-line tool
 --------------------------------------------------
 
 The GDSII file referenced in the following examples is 
@@ -185,7 +183,7 @@ Thank you for your support.
 ```
 
 --------------------------------------------------
-# Sample usage of `libGDSII` API routines
+# Using the `libGDSII` API 
 --------------------------------------------------
 
 ## Overview of the `libGDSII` API
@@ -250,9 +248,7 @@ typedef vector<double> dVec;
 typedef vector<dVec> PolygonList; // PolygonList[np][2*nv+0,2*nv+1] = x,y coords of vertex #nv in polygon #np
 ```
 
---------------------------------------------------
 ## Sample code
---------------------------------------------------
 
 ```C++
 
@@ -302,9 +298,8 @@ using namespace libGDSII;
   PolygonList Layer3Polygons = gdsIIData->GetPolygons("Geometry");
 ```
 
---------------------------------------------------
-## Internally-cached data structure
---------------------------------------------------
+## Internal caching of `GDSIIData` structure
+
 In the above snippet, we create an instance of `class GSDIIData`
 and access the geometry by calling the class methods of this
 instance. `libGDSII` also provides an alternative interface
