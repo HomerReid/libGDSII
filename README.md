@@ -11,7 +11,6 @@ The packages consists of
 + a command-line executable code (`GDSIIConvert`) for reporting statistics on GDSII geometries and
   exporting them to other file formats, notably including the [GMSH](http://gmsh.info) geometry format.
 
---------------------------------------------------
 # Installation
 --------------------------------------------------
 
@@ -25,7 +24,6 @@ The packages consists of
 This will install the `GDSIIConvert` executable in `$(prefix)/bin`
 and the `libGDSII.a` and/or `libGDSII.so` library binaries in `$(prefix)/lib`.
 
---------------------------------------------------$
 # Using the `GDSIIConvert` command-line tool
 --------------------------------------------------
 
@@ -182,7 +180,6 @@ Read 2080 data records from file SiEPIC/GSiP_4_RingFilter.gds.
 Thank you for your support. 
 ```
 
---------------------------------------------------
 # Using the `libGDSII` API 
 --------------------------------------------------
 
