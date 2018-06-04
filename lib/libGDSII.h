@@ -141,7 +141,7 @@ namespace libGDSII
        // a GDSII text element matching Text (which must also lie on layer Layer).
        // If Layer==-1, search all layers.
        // If Text==NULL, return a list of all polygons on the given layer.
-       PolygonList GetPolygons(char *Text, int Layer=-1);
+       PolygonList GetPolygons(const char *Text, int Layer=-1);
        PolygonList GetPolygons(int Layer);
 
      /*--------------------------------------------------------*/
@@ -200,15 +200,15 @@ bool PointInPolygon(dVec Vertices, double X, double Y);
 /* After the final such call the API code may call ClearGDSIICache()   */
 /* to free memory allocated for the cache.                             */
 /***********************************************************************/
-PolygonList GetPolygons(char *GDSIIFile, char *Text, int Layer=-1);
-PolygonList GetPolygons(char *GDSIIFile, int Layer);
+PolygonList GetPolygons(const char *GDSIIFile, const char *Text, int Layer=-1);
+PolygonList GetPolygons(const char *GDSIIFile, int Layer);
 void ClearGDSIICache();
 
 /***************************************************************/
 /* non-class method utility routines                           */
 /***************************************************************/
 bool DumpGDSIIFile(const char *FileName);
-void WriteGMSHEntity(Entity E, int Layer, char *geoFileName, FILE **pgeoFile,
+void WriteGMSHEntity(Entity E, int Layer, const char *geoFileName, FILE **pgeoFile,
                      char *ppFileName=0, FILE **pppFile=0);
 void WriteGMSHFile(EntityTable ETable, iVec Layers, char *FileBase, bool SeparateLayers=false);
 

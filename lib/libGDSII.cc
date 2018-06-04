@@ -87,7 +87,7 @@ int GDSIIData::GetStructByName(string Name)
 iVec GDSIIData::GetLayers()
 { return Layers; }
 
-PolygonList GDSIIData::GetPolygons(char *Text, int Layer)
+PolygonList GDSIIData::GetPolygons(const char *Text, int Layer)
 {
   PolygonList Polygons;
   
@@ -138,7 +138,7 @@ void ClearGDSIICache()
   CachedGDSIIData=0;
 }
 
-void OpenGDSIIFile(char *GDSIIFileName)
+void OpenGDSIIFile(const char *GDSIIFileName)
 { 
   if (CachedGDSIIData && !strcmp(CachedGDSIIData->GDSIIFileName->c_str(),GDSIIFileName) )
    return;
@@ -149,12 +149,12 @@ void OpenGDSIIFile(char *GDSIIFileName)
    GDSIIData::ErrExit(CachedGDSIIData->ErrMsg->c_str());
 }
   
-PolygonList GetPolygons(char *GDSIIFile, char *Label, int Layer)
+PolygonList GetPolygons(const char *GDSIIFile, const char *Label, int Layer)
 { OpenGDSIIFile(GDSIIFile);
   return CachedGDSIIData->GetPolygons(Label,Layer);
 }
 
-PolygonList GetPolygons(char *GDSIIFile, int Layer)
+PolygonList GetPolygons(const char *GDSIIFile, int Layer)
  { return GetPolygons(GDSIIFile, 0, Layer); }
 
 /***************************************************************/
