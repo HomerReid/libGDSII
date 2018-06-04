@@ -316,8 +316,8 @@ void GDSIIData::Flatten(double UnitInMM)
 /***************************************************************/
 /***************************************************************/
 void WriteGMSHEntity(Entity E, int Layer,
-                     char *geoFileName, FILE **pgeoFile,
-                     char *ppFileName, FILE **pppFile)
+                     const char *geoFileName, FILE **pgeoFile,
+                     const char *ppFileName, FILE **pppFile)
 {   if ( (E.Text && !ppFileName) || (!E.Text && !geoFileName) ) return;
   
   if (E.Text)
@@ -358,7 +358,7 @@ void WriteGMSHEntity(Entity E, int Layer,
 /***************************************************************/
 /***************************************************************/
 /***************************************************************/
-void WriteGMSHFile(EntityTable ETable, iVec Layers, char *FileBase, bool SeparateLayers)
+void WriteGMSHFile(EntityTable ETable, iVec Layers, const char *FileBase, bool SeparateLayers)
 {
   char ppFileName[100];
   snprintf(ppFileName,100,"%s.pp",FileBase);

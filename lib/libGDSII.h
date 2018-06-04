@@ -209,7 +209,7 @@ void ClearGDSIICache();
 /***************************************************************/
 bool DumpGDSIIFile(const char *FileName);
 void WriteGMSHEntity(Entity E, int Layer, const char *geoFileName, FILE **pgeoFile,
-                     char *ppFileName=0, FILE **pppFile=0);
+                     const char *ppFileName=0, FILE **pppFile=0);
 void WriteGMSHFile(EntityTable ETable, iVec Layers, char *FileBase, bool SeparateLayers=false);
 
 } /* namespace libGDSII */
