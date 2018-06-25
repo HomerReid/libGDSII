@@ -61,6 +61,9 @@ using namespace std;
 /****************************************************************************************/
 typedef vector<dVec> PolygonList;
 
+typedef struct { char *Text; dVec XY; int Layer; } TextString;
+typedef vector<TextString> TextStringList;
+
 /***************************************************************/
 /* Data structures used to process GDSII files:                */
 /*  (a) GDSIIElement and GDSIIStruct are used to store info    */
@@ -142,7 +145,8 @@ namespace libGDSII
        // If Layer==-1, search all layers.
        // If Text==NULL, return a list of all polygons on the given layer.
        PolygonList GetPolygons(const char *Text, int Layer=-1);
-       PolygonList GetPolygons(int Layer);
+       PolygonList GetPolygons(int Layer=-1);
+       TextStringList GetTextStrings(int Layer=-1);
 
      /*--------------------------------------------------------*/
      /* API data fields                                        */
@@ -201,7 +205,8 @@ bool PointInPolygon(dVec Vertices, double X, double Y);
 /* to free memory allocated for the cache.                             */
 /***********************************************************************/
 PolygonList GetPolygons(const char *GDSIIFile, const char *Text, int Layer=-1);
-PolygonList GetPolygons(const char *GDSIIFile, int Layer);
+PolygonList GetPolygons(const char *GDSIIFile, int Layer=-1);
+TextStringList GetTextStrings(const char *GDSIIFile, int Layer=-1);
 void ClearGDSIICache();
 
 /***************************************************************/

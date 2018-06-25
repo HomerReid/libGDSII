@@ -43,7 +43,6 @@ GDSIIData::GDSIIData(const string FileName)
   UnitInMeters  = 1.0e-6;
   FileUnits[0]  = FileUnits[1]=0.0;
   GDSIIFileName = new string(FileName);
-
   ReadGDSIIFile(FileName);
 
   // at this point ErrMsg is non-null if an error occurred
@@ -124,6 +123,26 @@ PolygonList GDSIIData::GetPolygons(const char *Text, int Layer)
 PolygonList GDSIIData::GetPolygons(int Layer) 
  { return GetPolygons(0,Layer); }
 
+TextString NewTextString(Entity E, int Layer)
+{ TextString TS;
+  TS.Text  = E.Text;
+  TS.XY    = dVec(E.XY);
+  TS.Layer = Layer;
+  return TS;
+}
+
+TextStringList GDSIIData::GetTextStrings(int Layer)
+{ 
+  TextStringList TextStrings;
+  for(size_t nl=0; nl<Layers.size(); nl++)
+   { if (Layer!=-1 && Layers[nl]!=Layer) continue;
+     for(size_t ne=0; ne<ETable[nl].size(); ne++)
+      if ( ETable[nl][ne].Text )
+       TextStrings.push_back( NewTextString( ETable[nl][ne], Layers[nl] ) );
+   }
+  return TextStrings;
+}
+
 /***************************************************************/
 /* the next few routines implement a mechanism by which an API */
 /* code can make multiple calls to GetPolygons() for a given   */
@@ -156,6 +175,11 @@ PolygonList GetPolygons(const char *GDSIIFile, const char *Label, int Layer)
 
 PolygonList GetPolygons(const char *GDSIIFile, int Layer)
  { return GetPolygons(GDSIIFile, 0, Layer); }
+
+TextStringList GetTextStrings(const char *GDSIIFile, int Layer)
+{ OpenGDSIIFile(GDSIIFile);
+  return CachedGDSIIData->GetTextStrings(Layer);
+}
 
 /***************************************************************/
 /* find the value of s at which the line p+s*d intersects the  */

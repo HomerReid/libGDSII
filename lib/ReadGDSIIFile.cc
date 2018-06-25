@@ -529,13 +529,11 @@ double ConvertReal(BYTE *Bytes, DataType DType)
 }
 
 
-// The allowed characters are [a-zA-Z?$_].
+// The allowed characters are all ASCII-printable characters, including space, except comma (,) and double quote (").
 // Non-allowed characters at the end of the string are removed.
 // Non-allowed characters not at the end of the string are converted to underscores.
 bool IsAllowedChar(char c)
-{ c=tolower(c);
-  return ('a' <= c && c <= 'z') || c=='$' || c=='_' || c=='?';
-}
+{ return isprint(c) && c!='"' && c!=','; }
 
 string *MakeGDSIIString(char *Original, int Size)
 { 
