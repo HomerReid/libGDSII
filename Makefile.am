@@ -4,3 +4,5 @@ AM_CFLAGS = -O3
 AM_CXXFLAGS = -O3
 SUBDIRS = lib applications examples
 EXTRA_DIST = COPYRIGHT
+
+
