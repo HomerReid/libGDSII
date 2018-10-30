@@ -65,10 +65,10 @@ typedef struct { char *Text; dVec XY; int Layer; } TextString;
 typedef vector<TextString> TextStringList;
 
 /***************************************************************/
-/* Data structures used to process GDSII files:                */
+/* Data structures used to process GDSII files.                */
 /*  (a) GDSIIElement and GDSIIStruct are used to store info    */
 /*      on the geometry as described in the GDSII file, with   */
-/*      nesting hierarchy intact                               */
+/*      nesting hierarchy intact.                              */
 /*  (b) Flattening the hierarchy (i.e. eliminating all SREFS   */
 /*      and AREFS to instantiate all objects and text directly)*/
 /*      yields a table of Entity structures, organized by the  */
@@ -78,7 +78,21 @@ typedef vector<TextString> TextStringList;
 /*      reference point/location). An EntityList is a          */ 
 /*      collection of Entities, in no particular order, all on */ 
 /*      the same layer. An EntityTable is a collection of      */ 
-/*      (LayerIndex, EntityList) pairs.                        */ 
+/*      (LayerIndex, EntityList) pairs.                        */
+/*                                                             */
+/*      Note that, whereas GDSIIElements and GDSIIStructs      */
+/*      represent vertices as pairs of integers (multiples of  */
+/*      the GDSII database unit), Entities represent vertices  */
+/*      by pairs of doubles (real-valued, continuous physical  */
+/*      coordinates). The default length unit for the          */
+/*      coordinates of Entity vertices is 1 micron, but this   */
+/*      may be changed by specifying a nonzero value for the   */
+/*      CoordinateLengthUnit argument to Flatten(), or by      */
+/*      setting the environment variable LIBGDSII_LENGTH_UNIT, */
+/*      to the desired length unit in meters (default=1e-6).   */
+/*      Thus, to output vertex coordinates in units of         */
+/*      millimeters, set LengthUnit or LIBGDSII_LENGTH_UNIT to */
+/*      1.0e-3.                                                */
 /***************************************************************/
 enum ElementType { BOUNDARY, PATH, SREF, AREF, TEXT, NODE, BOX };
 
@@ -158,9 +172,9 @@ namespace libGDSII
      /*--------------------------------------------------------*/
 // private:
     // constructor helper methods
-      void ReadGDSIIFile(const std::string FileName);
+      void ReadGDSIIFile(const std::string FileName, double CoordinateLengthUnit=0.0);
       int GetStructByName(std::string Name);
-      void Flatten(double UnitInMM=1.0);
+      void Flatten(double CoordinateLengthUnit=0.0);
 
      /*--------------------------------------------------------*/
      /* variables intended for internal use                    */

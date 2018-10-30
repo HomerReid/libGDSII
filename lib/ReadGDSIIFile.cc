@@ -727,9 +727,10 @@ void InitializeParseState(ParseState *PState, GDSIIData *Data)
 }
 
 /*--------------------------------------------------------------*/
+/*- If CoordinateLengthUnit is nonzero, it sets the desired     */
+/*- output unit (in meters) for vertex coordinates.             */
 /*--------------------------------------------------------------*/
-/*--------------------------------------------------------------*/
-void GDSIIData::ReadGDSIIFile(const string FileName)
+void GDSIIData::ReadGDSIIFile(const string FileName, double CoordinateLengthUnit)
  {
    ErrMsg=0;
 
@@ -789,9 +790,7 @@ void GDSIIData::ReadGDSIIFile(const string FileName)
    /*- Flatten hierarchy to obtain simple unstructured lists       */
    /*- of polygons and text labels on each layer.                  */
    /*--------------------------------------------------------------*/
-   Flatten();
-
-   //printf("Read %i data records from file %s.\n", PState.NumRecords,FileName.c_str());
+   Flatten(CoordinateLengthUnit);
 }
 
 /***************************************************************/

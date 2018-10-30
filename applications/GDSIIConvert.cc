@@ -58,7 +58,7 @@ void Usage(const char *ErrorMessage, ...)
   printf("\n");
   printf(" ** Other flags: **\n");
   printf("   --MetalLayer     12  define layer 12 as a metal layer (may be specified multiple times)\n");
-  printf("   --LengthUnit     xx  set output length unit in mm (default = 1)\n");
+  printf("   --LengthUnit     xx  set output length unit in meters (default = 1e-6)\n");
   printf("   --FileBase       xx  set base name for output files\n");
   printf("   --verbose            produce more output\n");
   printf("   --SeparateLayers     write separate output files for objects on each layer\n");
@@ -68,7 +68,7 @@ void Usage(const char *ErrorMessage, ...)
 typedef struct GDSIIOptions
  { char *GDSIIFile;
    bool Raw, Analyze, WriteGMSH, WritePorts;
-   double UnitInMM;
+   double CoordinateLengthUnit;
    char *FileBase;
    bool Verbose;
    bool SeparateLayers;
@@ -86,16 +86,16 @@ GDSIIOptions *ProcessGDSIIOptions(int argc, char *argv[])
   /***************************************************************/
   /* process command-line options  *******************************/
   /***************************************************************/
-  GDSIIOptions *Options   = new GDSIIOptions;
-  Options->GDSIIFile      = 0;
-  Options->Raw            = false;
-  Options->Analyze        = false;
-  Options->WriteGMSH      = false;
-  Options->WritePorts     = false;
-  Options->UnitInMM       = 1.0;
-  Options->FileBase       = 0;
-  Options->Verbose        = false;
-  Options->SeparateLayers = false;
+  GDSIIOptions *Options         = new GDSIIOptions;
+  Options->GDSIIFile            = 0;
+  Options->Raw                  = false;
+  Options->Analyze              = false;
+  Options->WriteGMSH            = false;
+  Options->WritePorts           = false;
+  Options->CoordinateLengthUnit = 1.0e-6;
+  Options->FileBase             = 0;
+  Options->Verbose              = false;
+  Options->SeparateLayers       = false;
 
   int narg=1;
   for(; narg<argc; narg++)
@@ -142,7 +142,7 @@ GDSIIOptions *ProcessGDSIIOptions(int argc, char *argv[])
      else if (!strcasecmp(argv[narg],"--LogFile"))
       GDSIIData::LogFileName=strdup(argv[++narg]);
      else if (!strcasecmp(argv[narg],"--LengthUnit"))
-      sscanf(argv[++narg],"%le",&Options->UnitInMM);
+      sscanf(argv[++narg],"%le",&Options->CoordinateLengthUnit);
      else if (!strcasecmp(argv[narg],"--MetalLayer"))
       { int nml; if (1==sscanf(argv[++narg],"%i",&nml)) Options->MetalLayers.push_back(nml);
       }
@@ -440,7 +440,6 @@ n,MemBefore[n],MemDuring[n],MemAfter[n],MemAfter[n]-MemBefore[n]);
   /****************************************************************/
   if (Options->WriteGMSH)
    WriteGeometryAndPorts(gdsIIData, Options);
-
 
   printf("Thank you for your support.\n");
 

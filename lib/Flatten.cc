@@ -62,15 +62,15 @@ static void ApplyGTransform(GTransform GT, double X, double Y, double *XP, doubl
 /***************************************************************/
 typedef struct StatusData
 { int CurrentLayer;
-  double UnitInMM;
+  double IJ2XY; // scale factor converting GDSII integer-value vertex indices to real-valued coordinates in the chosen length units
   EntityList EntitiesThisLayer;
   GTVec GTStack;
   int RefDepth;
 } StatusData;
 
-static void InitStatusData(StatusData *SD)
+static void InitStatusData(StatusData *SD, double CoordinateLengthUnit, double PixelLengthUnit)
 { SD->CurrentLayer=-1;
-  SD->UnitInMM = 1.0e-6;
+  SD->IJ2XY = PixelLengthUnit / CoordinateLengthUnit;
   SD->RefDepth=0;
 }
 
@@ -83,8 +83,8 @@ static void GetPhysicalXY(StatusData *SD, double X, double Y, double *pXP, doubl
      X=XP;
      Y=YP;
    }
-  *pXP = SD->UnitInMM * XP;
-  *pYP = SD->UnitInMM * YP;
+  *pXP = SD->IJ2XY * XP;
+  *pYP = SD->IJ2XY * YP;
 }
 
 /***************************************************************/
@@ -128,8 +128,8 @@ void AddPath(StatusData *SD, GDSIIData *Data, int ns, int ne)
   vector<int> IXY = e->XY;
   int NXY         = IXY.size() / 2;
 
-  double Unit     = SD->UnitInMM;
-  double W        = e->Width*Unit;
+  double IJ2XY    = SD->IJ2XY;
+  double W        = e->Width*IJ2XY;
 
   Entity E;
   E.Text   = 0;
@@ -297,11 +297,17 @@ void AddStruct(StatusData *SD, GDSIIData *Data, int ns, bool ASRef)
 /***************************************************************/
 /***************************************************************/
 /***************************************************************/
-void GDSIIData::Flatten(double UnitInMM)
+void GDSIIData::Flatten(double CoordinateLengthUnit)
 {
+  if (CoordinateLengthUnit==0.0)
+   { CoordinateLengthUnit = 1.0e-6;
+     char *s=getenv("LIBGDSII_LENGTH_UNIT");
+     if (s && 1==sscanf(s,"%le",&CoordinateLengthUnit))
+      Log("Setting libGDSII length unit to %g meters.\n",CoordinateLengthUnit);
+   }
+
   StatusData SD;
-  InitStatusData(&SD);
-  SD.UnitInMM = UnitInMM * this->UnitInMeters;
+  InitStatusData(&SD, CoordinateLengthUnit, FileUnits[1]);
   
   for(size_t nl=0; nl<Layers.size(); nl++)
    { SD.CurrentLayer = Layers[nl];
