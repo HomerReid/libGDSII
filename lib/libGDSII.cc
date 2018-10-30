@@ -40,8 +40,9 @@ GDSIIData::GDSIIData(const string FileName)
 { 
   // initialize class data
   LibName       = 0;
+  FileUnits[0]  = 1.0e-3; // these seem to be the default for GDSII files
+  FileUnits[1]  = 1.0e-9;
   UnitInMeters  = 1.0e-6;
-  FileUnits[0]  = FileUnits[1]=0.0;
   GDSIIFileName = new string(FileName);
   ReadGDSIIFile(FileName);
 
