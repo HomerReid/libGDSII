@@ -212,12 +212,13 @@ bool PointInPolygon(dVec Vertices, double X, double Y);
 
 /***********************************************************************/
 /* the next few routines implement a caching mechanism by which an API */
-/* code can make multiple calls to GetPolygons() for a given GDSII file*/
-/* without requiring the API code to keep track of a GDSIIData         */
+/* code can make multiple calls to e.g. GetPolygons() for a given GDSII*/
+/* file without requiring the API code to keep track of a GDSIIData    */
 /* instance, but also without re-reading the file each time.           */
 /* After the final such call the API code may call ClearGDSIICache()   */
 /* to free memory allocated for the cache.                             */
 /***********************************************************************/
+iVec GetLayers(const char *GDSIIFile);
 PolygonList GetPolygons(const char *GDSIIFile, const char *Text, int Layer=-1);
 PolygonList GetPolygons(const char *GDSIIFile, int Layer=-1);
 TextStringList GetTextStrings(const char *GDSIIFile, int Layer=-1);

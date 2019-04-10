@@ -168,6 +168,11 @@ void OpenGDSIIFile(const char *GDSIIFileName)
   if (CachedGDSIIData->ErrMsg)
    GDSIIData::ErrExit(CachedGDSIIData->ErrMsg->c_str());
 }
+
+iVec GetLayers(const char *GDSIIFile)
+{ OpenGDSIIFile(GDSIIFile);
+  return CachedGDSIIData->GetLayers();
+}
   
 PolygonList GetPolygons(const char *GDSIIFile, const char *Label, int Layer)
 { OpenGDSIIFile(GDSIIFile);
