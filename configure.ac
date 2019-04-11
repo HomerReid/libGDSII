@@ -1,4 +1,4 @@
-AC_INIT(libGDSII, 0.1, homer@homerreid.com)
+AC_INIT(libGDSII, 0.21, homer@homerreid.com)
 AC_CONFIG_SRCDIR([README])
 
 # Shared-library version.  This has a technical
